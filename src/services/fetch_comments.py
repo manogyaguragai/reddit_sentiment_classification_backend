@@ -1,48 +1,18 @@
 import asyncpraw
-import json
 from models import RedditComment
 from pydantic import ValidationError
-from pymongo import MongoClient
 from fastapi import APIRouter
-from get_sentiment import get_sentiment
+from src.services.get_sentiment import get_sentiment
 from datetime import datetime
-
-# Load configuration from JSON file
-def load_config(file_path):
-    try:
-        with open(file_path, "r") as file:
-            config = json.load(file)
-            return config
-    except FileNotFoundError:
-        print(f"Error: The file '{file_path}' was not found.")
-        return None
-    except json.JSONDecodeError as e:
-        print(f"Error decoding JSON: {e}")
-        return None
-
-# Load configuration
-config_path = "config.json"
-config = load_config(config_path)
-
-if config:
-    client_id = config.get("client_id")
-    client_secret = config.get("client_secret")
-    username = config.get("username")
-    password = config.get("password")
-    mongo_uri = config.get("mongo_uri")
-
-    # MongoDB setup
-    client = MongoClient(mongo_uri)
-    db = client["RedditSentimentProject"]
-    comments_collection = db["comments"]
+from src.services.db_services import CLIENT_ID, CLIENT_SECRET, USERNAME, PASSWORD, COMMENTS
 
 # Async PRAW setup
 reddit = asyncpraw.Reddit(
-    client_id=client_id,
-    client_secret=client_secret,
+    client_id=CLIENT_ID,
+    client_secret=CLIENT_SECRET,
     user_agent="RedditSentimentAnalyzer",
-    username=username,
-    password=password,
+    username=USERNAME,
+    password=PASSWORD,
 )
 
 # Define FastAPI router
@@ -76,7 +46,7 @@ async def fetch_comments_sub(subreddit_name: str, limit: int = 100):
             reddit_comment.sentiment = sentiment
         
             # Insert or update in MongoDB
-            comments_collection.update_one(
+            COMMENTS.update_one(
                 {"id": reddit_comment.id},
                 {"$set": reddit_comment.dict()},
                 upsert=True,
@@ -92,18 +62,20 @@ async def fetch_comments_url(post_url: str, limit: int = 100):
     """Fetch all comments from a URL using Async PRAW and save to MongoDB."""
     
     submission = await reddit.submission(url=post_url)
+    post_title = submission.title
     
     async for comment in submission.comments:
+        
         try:
             reddit_comment = RedditComment(
                 id=comment.id,
-                author=comment.author_fullname if hasattr(comment, 'author_fullname') and comment.author_fullname else None,
+                author=comment.author.name if hasattr(comment, 'author') and comment.author else None,
                 subreddit=str(comment.subreddit),
                 body=str(comment.body),
                 post_id=comment.parent_id,
-                post_title=comment.link_id,  # link_id as there is no post_title in your provided fields
+                post_title=post_title,  # link_id as there is no post_title in your provided fields
                 post_author=comment.link_author if hasattr(comment, 'link_author') and comment.link_author else None,
-                post_permalink=comment.permalink,  # Use permalink directly
+                post_permalink=f"https://www.reddit.com{comment.permalink}",  # Use permalink directly
                 created_utc=comment.created_utc,
                 score=comment.score,
                 comment_permalink=f"https://www.reddit.com{comment.permalink}",
@@ -118,7 +90,7 @@ async def fetch_comments_url(post_url: str, limit: int = 100):
             reddit_comment.sentiment = sentiment
         
             # Insert or update in MongoDB
-            comments_collection.update_one(
+            COMMENTS.update_one(
                 {"id": reddit_comment.id},
                 {"$set": reddit_comment.dict()},
                 upsert=True,

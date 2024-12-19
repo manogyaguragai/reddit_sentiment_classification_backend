@@ -1,6 +1,8 @@
 from fastapi import FastAPI, HTTPException 
 from fastapi.responses import RedirectResponse
-from fetch_comments import fetch_comments_sub, fetch_comments_url
+from src.services.fetch_comments import fetch_comments_sub, fetch_comments_url
+from src.insights.posts import get_list_of_all_posts
+from typing import Optional
 
 app = FastAPI(title = "Reddit Comments Sentiment Classifier", version="1.0.0")
 
@@ -32,3 +34,16 @@ async def fetch_comments_from_url(url: str, limit: int = 100):
     
     except Exception as e:
         raise HTTPException(status_code = 500, detail = f"Failed to fetch comments: {str(e)}")
+    
+@app.get("/posts/all")
+async def get_all_posts(page_number: int = 1, 
+                        documents_per_page: int = 10,
+                        post_search_query: Optional[str] = None,
+                        sentiment: Optional[str] = None
+                        ):
+    
+    try:
+        return get_list_of_all_posts(page_number, documents_per_page, post_search_query, sentiment)
+    
+    except Exception as e:
+        raise HTTPException(status_code = 500, detail = f"Failed to fetch posts: {str(e)}")
