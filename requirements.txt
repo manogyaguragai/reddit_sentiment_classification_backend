@@ -3,3 +3,6 @@ uvicorn
 pydantic
 pymongo
 asyncpraw
+langchain
+langchain-community
+langchain-openai

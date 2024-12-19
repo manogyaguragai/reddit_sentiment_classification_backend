@@ -16,3 +16,5 @@ class RedditComment(BaseModel):
     comment_permalink: Optional[str]
     parent_id: Optional[str]
     edited: Optional[bool]
+    sentiment: Optional[str]
+    insert_time: datetime

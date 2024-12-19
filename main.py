@@ -8,7 +8,7 @@ app = FastAPI(title = "Reddit Comments Sentiment Classifier", version="1.0.0")
 async def root():
     return RedirectResponse(url="/docs")
 
-@app.post("/fetch_comments")
+@app.post("/fetch_comments/subreddit")
 async def fetch_comments_from_subreddit(subreddit: str, limit: int = 100):
     try:
         if limit <= 0:
