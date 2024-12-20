@@ -53,6 +53,7 @@ def get_list_of_all_posts(page_number,
               "_id": "$post_id",
               "post_title": {"$first": "$post_title"},
               "created_at": {"$first": "$created_utc"},
+              "subreddit": {"$first": "$subreddit"},
               "comment_count": {"$sum": 1},  # Count the number of comments for each post_id
               "sentiment_counts": {
                   "$push": "$sentiment"  # Collect all sentiments for this post_id
@@ -65,6 +66,7 @@ def get_list_of_all_posts(page_number,
               "_id": 0,
               "post_id": "$_id",
               "post_title": 1,
+              "subreddit": 1,
               "created_at": 1,
               "comment_count": 1,
               "sentiment_breakdown": {
@@ -139,3 +141,116 @@ def get_list_of_all_posts(page_number,
       return "Error fetching posts: " + str(e)
   
   
+def get_comments_by_post_id(post_id, page_number, documents_per_page):
+  try:
+    match_query = {
+        "post_id": post_id
+        
+        }
+        
+        # if sentiment:
+        #     match_query["sentiment"] = sentiment.capitalize()
+            
+        # if user_search_query and user_search_query.strip():
+        #     match_query["user_name"] = {
+        #         "$regex": user_search_query, 
+        #         "$options": "i"
+        #     }
+
+    total_docs = COMMENTS.count_documents(match_query)
+    num_pages = (total_docs + documents_per_page - 1) // documents_per_page  
+
+    pipeline = [
+    {
+        "$match": match_query
+    },
+    {
+        "$sort": {
+            "insert_time": -1
+        }
+    },
+    {
+        "$project": {
+            "_id": 0,
+            # "user_id": 1,
+            "post_id": 1,
+            "post_title": 1,
+            "author": 1,
+            "body": 1,
+            "sentiment": 1,
+            "created_utc": 1
+        }
+    },
+    {
+        "$skip": documents_per_page * (page_number - 1)
+    },
+    {
+        "$limit": documents_per_page
+    }
+    ]
+    
+    docs = list(COMMENTS.aggregate(pipeline))    
+    return {
+        "current_page": page_number,
+        "total_pages": num_pages,
+        "total_documents": total_docs,
+        "documents": docs
+    }
+  except Exception as e:
+      return "Error fetching comments: " + str(e)
+  
+def get_chart_data_from_post_id(post_id):
+    
+    try:
+        
+        match_query = {
+            "post_id": post_id
+        }
+        
+        pipeline = [
+        {
+            "$match": match_query
+        },
+        {
+            "$group": {
+                "_id": "$sentiment",
+                "count": { "$sum": 1 }
+            }
+        },
+        {
+            "$sort":{
+            "count": -1
+            }
+        },
+        {
+            "$project": {
+                "sentiment": "$_id",
+                "count": 1,
+                "_id": 0
+            }
+        }
+        ]
+    
+        total_comments = COMMENTS.count_documents(match_query)
+        sentiment_result = list(COMMENTS.aggregate(pipeline))
+        
+        existing_sentiments = ["Satisfied", "Dissatisfied", "Sarcastic", "Curious", "Neutral", "Sad", "Profanity"]
+        for sentiment in existing_sentiments:
+            if sentiment.lower() not in {entry["sentiment"].lower() for entry in sentiment_result}:
+                        sentiment_result.append({"count": 0, "sentiment": sentiment})
+            
+            # trending_sentiment = sentiment_result[0].get("sentiment", "NA")
+            
+            # post_details = {
+            #     "post_id": post_id,
+            #     "post_title": post_title,
+            #     "post_caption": post_caption,
+            #     "post_date": post_date,
+            #     "total_comments": total_comments,
+            #     "trending_sentiment": trending_sentiment,
+            #     "sentiment_distribution": sentiment_result
+            # }
+        
+        return sentiment_result
+    except Exception as e:
+        return "Error fetching post details: " + str(e)

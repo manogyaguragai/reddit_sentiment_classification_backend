@@ -1,10 +1,20 @@
 from fastapi import FastAPI, HTTPException 
 from fastapi.responses import RedirectResponse
+from fastapi.middleware.cors import CORSMiddleware
 from src.services.fetch_comments import fetch_comments_sub, fetch_comments_url
-from src.insights.posts import get_list_of_all_posts
+from src.insights.posts import get_list_of_all_posts, get_comments_by_post_id, get_chart_data_from_post_id
 from typing import Optional
 
 app = FastAPI(title = "Reddit Comments Sentiment Classifier", version="1.0.0")
+
+# allow_origins = ["http://localhost:3000"] 
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 @app.get("/")
 async def root():
@@ -47,3 +57,20 @@ async def get_all_posts(page_number: int = 1,
     
     except Exception as e:
         raise HTTPException(status_code = 500, detail = f"Failed to fetch posts: {str(e)}")
+    
+@app.get("/posts/{post_id}")
+async def get_post_details_by_id(post_id: str, page_number: int = 1, documents_per_page: int = 10):
+    try:
+        return get_comments_by_post_id(post_id, page_number, documents_per_page)
+    
+    except Exception as e:
+        raise HTTPException(status_code = 500, detail = f"Failed to fetch posts: {str(e)}")
+
+
+@app.get("/posts/{post_id}/chart")
+async def get_chart_data(post_id: str):
+    
+  try:
+    return get_chart_data_from_post_id(post_id)
+  except Exception as e:
+    return "Error fetching post details: " + str(e)
