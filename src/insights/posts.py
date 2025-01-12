@@ -3,7 +3,8 @@ from src.services.db_services import COMMENTS
 def get_list_of_all_posts(page_number, 
                   documents_per_page,
                   post_search_query,
-                  sentiment):
+                  sentiment,
+                  subreddit):
   
   match_query = {}
   
@@ -15,6 +16,9 @@ def get_list_of_all_posts(page_number,
       
   if sentiment:
       match_query["sentiment"] = sentiment.capitalize()
+      
+  if subreddit:
+      match_query["subreddit"] = subreddit
   
   group_pipeline = [
       {
